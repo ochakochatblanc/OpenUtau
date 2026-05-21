@@ -154,7 +154,7 @@ namespace OpenUtau.Core.Editing {
         public virtual string Name => name;
         private string name;
         static readonly Regex phoneticHintPattern = new Regex(@"\[(.*)\]");
-        static readonly List<string> ignoreList = new List<string>(new string[] {"R", "br", "AP", "SP", "cl", " -"});
+        static readonly List<string> ignoreList = new List<string>(new string[] {"R", "br", "AP", "SP", "cl", "息", "吸"});
 
         public AddPhoneticHints() {
             name = "pianoroll.menu.lyrics.addphonetichints";
@@ -184,30 +184,25 @@ namespace OpenUtau.Core.Editing {
                 if (phonemizer is IG2pSymbols sym) {
                     var phonemeList = sym.GetSymbols(constructNote);
                     string lyric = note.lyric + " [" + string.Join(" ", phonemeList) + "]";
+                    if (lyric == "[]") {
+                        lyric = note.lyric;
+                    }
                     docManager.ExecuteCmd(new ChangeNoteLyricCommand(part, note, lyric));
                 } else {
 
                     // fallback behaviour given phonemizer is neither SBP not PBP instance.
+                    // fallsback to providing phonemizer phonemes as output.
 
-                    var phonemeResults = phonemizer.Process(
-                            notes: new[] { constructNote },
-                            prev: null,
-                            next: null,
-                            prevNeighbour: null,
-                            nextNeighbour: null,
-                            prevs: new OpenUtau.Api.Phonemizer.Note[0]); 
+                    var phonemeList = part.phonemes
+                    .Where(p => note.phonemeIndexes.Contains(p.index) && note.position == p.position)
+                    .Select(p => p.phoneme);
 
-                    
-                    var phonemeList = phonemeResults.phonemes
-                        .Select(p => p.phoneme.Trim())
-                        .Where(p => !string.IsNullOrEmpty(p) && !ignoreList.Contains(p))
-                        .ToList();
-                      
-                    string lyric = note.lyric + " [" + string.Join(" ", phonemeList).Replace("-", "").Trim() + "]";
+                    string lyric = note.lyric + " [" + string.Join(" ", phonemeList) + "]";
+                    if (lyric == "[]") {
+                        lyric = note.lyric;
+                    }
                     docManager.ExecuteCmd(new ChangeNoteLyricCommand(part, note, lyric));
                 }
-
-                
             }
 
             docManager.EndUndoGroup();
