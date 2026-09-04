@@ -217,7 +217,7 @@ namespace OpenUtau.Core.Editing {
 
                         currentNote = newNote;
                     }
-                    docManager.ExecuteCmd(new ChangeNoteLyricCommand(part, currentNote, note.lyric + ' [' + phonemeList[phonemeList.Count - 1].rawPhoneme + ']'));
+                    docManager.ExecuteCmd(new ChangeNoteLyricCommand(part, currentNote, note.lyric + " [" + phonemeList[phonemeList.Count - 1].rawPhoneme + ']'));
                 }
             }
 
