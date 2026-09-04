@@ -191,17 +191,33 @@ namespace OpenUtau.Core.Editing {
                 } else {
 
                     // fallback behaviour given phonemizer is neither SBP not PBP instance.
-                    // fallsback to providing phonemizer phonemes as output.
+                    // splits the note at each phoneme boundary and assigns the phonemizer's
+                    // original (unoverridden) alias to the resulting note as its lyric.
 
                     var phonemeList = part.phonemes
-                    .Where(p => note.phonemeIndexes.Contains(p.index) && note.position == p.position)
-                    .Select(p => p.phoneme);
+                    .Where(p => note.phonemeIndexes.Contains(p.index) && p.position >= note.position && p.position < (note.position + note.duration))
+                    .OrderBy(p => p.position)
+                    .ToList();
 
-                    string lyric = note.lyric + " [" + string.Join(" ", phonemeList) + "]";
-                    if (lyric == "[]") {
-                        lyric = note.lyric;
+                    if (phonemeList.Count == 0) {
+                        continue;
                     }
-                    docManager.ExecuteCmd(new ChangeNoteLyricCommand(part, note, lyric));
+
+                    var currentNote = note;
+                    for (int i = 1; i < phonemeList.Count; i++) {
+                        int splitPos = phonemeList[i].position;
+
+                        var newNote = project.CreateNote(currentNote.tone, splitPos, currentNote.End - splitPos);
+                        docManager.ExecuteCmd(new AddNoteCommand(part, newNote));
+                        foreach (var exp in currentNote.phonemeExpressions.OrderBy(exp => exp.index)) {
+                            docManager.ExecuteCmd(new SetNoteExpressionCommand(project, track, part, newNote, exp.abbr, new float?[] { exp.value }));
+                        }
+                        docManager.ExecuteCmd(new ResizeNoteCommand(part, currentNote, splitPos - currentNote.End));
+                        docManager.ExecuteCmd(new ChangeNoteLyricCommand(part, currentNote, phonemeList[i - 1].rawPhoneme));
+
+                        currentNote = newNote;
+                    }
+                    docManager.ExecuteCmd(new ChangeNoteLyricCommand(part, currentNote, note.lyric + '[' + phonemeList[phonemeList.Count - 1].rawPhoneme + ']'));
                 }
             }
 
